@@ -18,7 +18,10 @@
 package org.apache.shenyu.plugin.ratelimiter.resolver;
 
 import org.apache.shenyu.spi.Join;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.server.ServerWebExchange;
+
+import java.util.List;
 
 @Join
 public class WholeKeyResolver implements RateLimiterKeyResolver {
@@ -30,6 +33,10 @@ public class WholeKeyResolver implements RateLimiterKeyResolver {
 
     @Override
     public String resolve(final ServerWebExchange exchange) {
-        return "WHOLE_KEY_RESOLVER";
+        List<String> headers = exchange.getRequest().getHeaders().get("Authorization");
+        if (CollectionUtils.isEmpty(headers)) {
+            return "WHOLE_KEY_RESOLVER";
+        }
+        return headers.get(0);
     }
 }
