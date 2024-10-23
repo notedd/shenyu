@@ -17,12 +17,33 @@
 
 package org.apache.shenyu.plugin.param.mapping;
 
-import okhttp3.*;
+import okhttp3.Cookie;
+import okhttp3.CookieJar;
+import okhttp3.FormBody;
+import okhttp3.HttpUrl;
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
 import org.apache.commons.codec.digest.DigestUtils;
 
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -60,28 +81,28 @@ public class HttpUtils {
      * @return Request
      */
     public static Request.Builder buildRequestBuilder(final String url, final Map<String, ?> form,
-        final HTTPMethod method) {
+                                                      final HTTPMethod method) {
         switch (method) {
             case GET:
                 return new Request.Builder()
-                    .url(buildHttpUrl(url, form))
-                    .get();
+                        .url(buildHttpUrl(url, form))
+                        .get();
             case HEAD:
                 return new Request.Builder()
-                    .url(buildHttpUrl(url, form))
-                    .head();
+                        .url(buildHttpUrl(url, form))
+                        .head();
             case PUT:
                 return new Request.Builder()
-                    .url(buildHttpUrl(url))
-                    .put(buildFormBody(form));
+                        .url(buildHttpUrl(url))
+                        .put(buildFormBody(form));
             case DELETE:
                 return new Request.Builder()
-                    .url(buildHttpUrl(url))
-                    .delete(buildFormBody(form));
+                        .url(buildHttpUrl(url))
+                        .delete(buildFormBody(form));
             default:
                 return new Request.Builder()
-                    .url(buildHttpUrl(url))
-                    .post(buildFormBody(form));
+                        .url(buildHttpUrl(url))
+                        .post(buildFormBody(form));
         }
     }
 
@@ -128,21 +149,21 @@ public class HttpUtils {
 
     protected void initHttpClient(final HttpToolConfig httpToolConfig) {
         httpClient = new OkHttpClient.Builder()
-            .connectTimeout(httpToolConfig.connectTimeoutSeconds, TimeUnit.SECONDS)
-            .readTimeout(httpToolConfig.readTimeoutSeconds, TimeUnit.SECONDS)
-            .writeTimeout(httpToolConfig.writeTimeoutSeconds, TimeUnit.SECONDS)
-            .cookieJar(new CookieJar() {
-                @Override
-                public void saveFromResponse(final HttpUrl httpUrl, final List<Cookie> list) {
-                    cookieStore.put(httpUrl.host(), list);
-                }
+                .connectTimeout(httpToolConfig.connectTimeoutSeconds, TimeUnit.SECONDS)
+                .readTimeout(httpToolConfig.readTimeoutSeconds, TimeUnit.SECONDS)
+                .writeTimeout(httpToolConfig.writeTimeoutSeconds, TimeUnit.SECONDS)
+                .cookieJar(new CookieJar() {
+                    @Override
+                    public void saveFromResponse(final HttpUrl httpUrl, final List<Cookie> list) {
+                        cookieStore.put(httpUrl.host(), list);
+                    }
 
-                @Override
-                public List<Cookie> loadForRequest(final HttpUrl httpUrl) {
-                    List<Cookie> cookies = cookieStore.get(httpUrl.host());
-                    return cookies != null ? cookies : new ArrayList<Cookie>();
-                }
-            }).build();
+                    @Override
+                    public List<Cookie> loadForRequest(final HttpUrl httpUrl) {
+                        List<Cookie> cookies = cookieStore.get(httpUrl.host());
+                        return cookies != null ? cookies : new ArrayList<Cookie>();
+                    }
+                }).build();
     }
 
     /**
@@ -173,14 +194,14 @@ public class HttpUtils {
      * @throws IOException IOException
      */
     public String request(final String url, final Map<String, ?> form, final Map<String, String> header,
-        final HTTPMethod method) throws IOException {
+                          final HTTPMethod method) throws IOException {
         Request.Builder requestBuilder = buildRequestBuilder(url, form, method);
         addHeader(requestBuilder, header);
 
         Request request = requestBuilder.build();
         Response response = httpClient
-            .newCall(request)
-            .execute();
+                .newCall(request)
+                .execute();
         try {
             return response.body().string();
         } finally {
@@ -198,17 +219,17 @@ public class HttpUtils {
      * @throws IOException IOException
      */
     public String requestJson(final String url, final String json,
-        final Map<String, String> header) throws IOException {
+                              final Map<String, String> header) throws IOException {
         RequestBody body = RequestBody.create(MEDIA_TYPE_JSON, json);
         Request.Builder requestBuilder = new Request.Builder()
-            .url(url)
-            .post(body);
+                .url(url)
+                .post(body);
         addHeader(requestBuilder, header);
 
         Request request = requestBuilder.build();
         Response response = httpClient
-            .newCall(request)
-            .execute();
+                .newCall(request)
+                .execute();
         try {
             return response.body().string();
         } finally {
@@ -227,7 +248,7 @@ public class HttpUtils {
      * @throws IOException IOException
      */
     public String requestFileString(final String url, final Map<String, ?> form, final Map<String, String> header,
-        final List<UploadFile> files) throws IOException {
+                                    final List<UploadFile> files) throws IOException {
         return requestFile(url, form, header, files).body().string();
     }
 
@@ -242,17 +263,17 @@ public class HttpUtils {
      * @throws IOException IOException
      */
     public Response requestFile(final String url, final Map<String, ?> form, final Map<String, String> header,
-        final List<UploadFile> files)
-        throws IOException {
+                                final List<UploadFile> files)
+            throws IOException {
         MultipartBody.Builder bodyBuilder = new MultipartBody.Builder();
         bodyBuilder.setType(MultipartBody.FORM);
 
         for (UploadFile uploadFile : files) {
             bodyBuilder.addFormDataPart(uploadFile.getName(),
-                // The name of the file, which is used by the server for parsing.
-                uploadFile.getFileName(),
-                // Create the requestbody and put the uploaded file into the.
-                RequestBody.create(null, uploadFile.getFileData())
+                    // The name of the file, which is used by the server for parsing.
+                    uploadFile.getFileName(),
+                    // Create the requestbody and put the uploaded file into the.
+                    RequestBody.create(null, uploadFile.getFileData())
             );
         }
 
@@ -280,7 +301,7 @@ public class HttpUtils {
      * @throws IOException IOException
      */
     public Response requestCall(final String url, final Map<String, ?> form, final Map<String, String> header,
-        final HTTPMethod method, final List<UploadFile> files) throws IOException {
+                                final HTTPMethod method, final List<UploadFile> files) throws IOException {
         if (Objects.nonNull(files) && files.size() > 0) {
             return requestFile(url, form, header, files);
         } else {
@@ -299,13 +320,13 @@ public class HttpUtils {
      * @throws IOException IOException
      */
     public Response requestForResponse(final String url, final Map<String, ?> form, final Map<String, String> header,
-        final HTTPMethod method) throws IOException {
+                                       final HTTPMethod method) throws IOException {
         Request.Builder requestBuilder = buildRequestBuilder(url, form, method);
         addHeader(requestBuilder, header);
         Request request = requestBuilder.build();
         return httpClient
-            .newCall(request)
-            .execute();
+                .newCall(request)
+                .execute();
     }
 
     /**
@@ -318,14 +339,14 @@ public class HttpUtils {
      * @throws IOException IOException
      */
     public InputStream downloadFile(final String url, final Map<String, ?> form,
-        final Map<String, String> header) throws IOException {
+                                    final Map<String, String> header) throws IOException {
         Request.Builder requestBuilder = buildRequestBuilder(url, form, HTTPMethod.GET);
         addHeader(requestBuilder, header);
 
         Request request = requestBuilder.build();
         Response response = httpClient
-            .newCall(request)
-            .execute();
+                .newCall(request)
+                .execute();
         if (response.isSuccessful()) {
             ResponseBody body = response.body();
             return body == null ? null : body.byteStream();

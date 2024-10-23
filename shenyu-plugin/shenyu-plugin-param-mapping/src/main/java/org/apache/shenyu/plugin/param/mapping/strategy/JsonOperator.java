@@ -75,6 +75,30 @@ public class JsonOperator implements Operator {
                 })).onErrorResume((Function<Throwable, Mono<Void>>) throwable -> release(outputMessage, throwable));
     }
 
+    @Override
+    public void operation(final DocumentContext context, final ParamMappingRuleHandle paramMappingRuleHandle) {
+        if (!CollectionUtils.isEmpty(paramMappingRuleHandle.getAddParameterKeys())) {
+            paramMappingRuleHandle.getAddParameterKeys().forEach(info -> context.put(info.getPath(), info.getKey(), info.getValue()));
+        }
+        try {
+            // 判断context中是否含有某个key 如果含有则 进行替换
+            String cwAccessToken = context.read("$.cwAccessToken");
+            if (cwAccessToken != null) {
+                LOG.info("context has cwAccessToken");
+                try {
+                    String result = HTTP_UTILS.get("https://opendev.shipout.com/api/open-api/oms/order/query?orderId=1846092409358094338", null);
+                    LOG.info("requestJson result:{}", result);
+                    context.set("$.cwAccessToken", "newcwAccessToken");
+                } catch (Exception e) {
+                    LOG.error("requestJson error:{}", e);
+                }
+                LOG.info("context set cwAccessToken success {}", context.jsonString());
+            }
+        } catch (Exception e) {
+            LOG.error("json path error:{}", e);
+        }
+    }
+
     static class ModifyServerHttpRequestDecorator extends ServerHttpRequestDecorator {
 
         private final HttpHeaders headers;
@@ -110,26 +134,4 @@ public class JsonOperator implements Operator {
         }
     }
 
-    public void operation(final DocumentContext context, final ParamMappingRuleHandle paramMappingRuleHandle) {
-        if (!CollectionUtils.isEmpty(paramMappingRuleHandle.getAddParameterKeys())) {
-            paramMappingRuleHandle.getAddParameterKeys().forEach(info -> context.put(info.getPath(), info.getKey(), info.getValue()));
-        }
-        try {
-            // 判断context中是否含有某个key 如果含有则 进行替换
-            String cwAccessToken = context.read("$.cwAccessToken");
-            if (cwAccessToken != null) {
-                LOG.info("context has cwAccessToken");
-                try {
-                    String result = HTTP_UTILS.get("https://opendev.shipout.com/api/open-api/oms/order/query?orderId=1846092409358094338", null);
-                    LOG.info("requestJson result:{}", result);
-                    context.set("$.cwAccessToken", "newcwAccessToken");
-                } catch (Exception e) {
-                    LOG.error("requestJson error:{}", e);
-                }
-                LOG.info("context set cwAccessToken success {}", context.jsonString());
-            }
-        } catch (Exception e) {
-            LOG.error("json path error:{}", e);
-        }
-    }
 }
