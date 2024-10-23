@@ -17,10 +17,13 @@
 
 package org.apache.shenyu.plugin.param.mapping.strategy;
 
+import com.jayway.jsonpath.DocumentContext;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.shenyu.common.dto.convert.rule.impl.ParamMappingRuleHandle;
 import org.apache.shenyu.plugin.api.ShenyuPluginChain;
 import org.apache.shenyu.plugin.base.support.BodyInserterContext;
 import org.apache.shenyu.plugin.base.support.CachedBodyOutputMessage;
+import org.apache.shenyu.plugin.param.mapping.HttpUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.buffer.DataBuffer;
@@ -48,6 +51,8 @@ public class JsonOperator implements Operator {
     private static final Logger LOG = LoggerFactory.getLogger(JsonOperator.class);
 
     private static final List<HttpMessageReader<?>> MESSAGE_READERS = HandlerStrategies.builder().build().messageReaders();
+
+    private static final HttpUtils HTTP_UTILS = new HttpUtils();
 
     @Override
     public Mono<Void> apply(final ServerWebExchange exchange, final ShenyuPluginChain shenyuPluginChain, final ParamMappingRuleHandle paramMappingRuleHandle) {
@@ -102,6 +107,29 @@ public class JsonOperator implements Operator {
         @Override
         public Flux<DataBuffer> getBody() {
             return cachedBodyOutputMessage.getBody();
+        }
+    }
+
+    public void operation(final DocumentContext context, final ParamMappingRuleHandle paramMappingRuleHandle) {
+        if (!CollectionUtils.isEmpty(paramMappingRuleHandle.getAddParameterKeys())) {
+            paramMappingRuleHandle.getAddParameterKeys().forEach(info -> context.put(info.getPath(), info.getKey(), info.getValue()));
+        }
+        try {
+            // 判断context中是否含有某个key 如果含有则 进行替换
+            String cwAccessToken = context.read("$.cwAccessToken");
+            if (cwAccessToken != null) {
+                LOG.info("context has cwAccessToken");
+                try {
+                    String result = HTTP_UTILS.get("https://opendev.shipout.com/api/open-api/oms/order/query?orderId=1846092409358094338", null);
+                    LOG.info("requestJson result:{}", result);
+                    context.set("$.cwAccessToken", "newcwAccessToken");
+                } catch (Exception e) {
+                    LOG.error("requestJson error:{}", e);
+                }
+                LOG.info("context set cwAccessToken success {}", context.jsonString());
+            }
+        } catch (Exception e) {
+            LOG.error("json path error:{}", e);
         }
     }
 }
