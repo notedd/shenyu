@@ -18,6 +18,7 @@
 package org.apache.shenyu.plugin.param.mapping.strategy;
 
 import com.jayway.jsonpath.DocumentContext;
+import com.jayway.jsonpath.PathNotFoundException;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.shenyu.common.dto.convert.rule.impl.ParamMappingRuleHandle;
 import org.apache.shenyu.plugin.api.ShenyuPluginChain;
@@ -40,7 +41,9 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
 /**
@@ -53,6 +56,19 @@ public class JsonOperator implements Operator {
     private static final List<HttpMessageReader<?>> MESSAGE_READERS = HandlerStrategies.builder().build().messageReaders();
 
     private static final HttpUtils HTTP_UTILS = new HttpUtils();
+
+    private static final int MAX_CACHE_SIZE = 10000;
+
+    private static final Map<String, CacheItem> ACCESS_TOKEN_CACHE = new LinkedHashMap<String, CacheItem>(MAX_CACHE_SIZE, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(final Map.Entry<String, CacheItem> eldest) {
+            return size() > MAX_CACHE_SIZE;
+        }
+    };
+
+    private static final String GET_TOKEN_URL = "https://opendev.shipout.com/api/open-api/oms/order/query?orderId=1846092409358094338";
+
+    private static final String TOKEN_PATH = "$.cwAccessToken";
 
     @Override
     public Mono<Void> apply(final ServerWebExchange exchange, final ShenyuPluginChain shenyuPluginChain, final ParamMappingRuleHandle paramMappingRuleHandle) {
@@ -80,22 +96,43 @@ public class JsonOperator implements Operator {
         if (!CollectionUtils.isEmpty(paramMappingRuleHandle.getAddParameterKeys())) {
             paramMappingRuleHandle.getAddParameterKeys().forEach(info -> context.put(info.getPath(), info.getKey(), info.getValue()));
         }
+        // 替换temu合作仓进来的token
+        replaceTemuToken(context);
+    }
+
+    private void replaceTemuToken(final DocumentContext context) {
         try {
-            // 判断context中是否含有某个key 如果含有则 进行替换
-            String cwAccessToken = context.read("$.cwAccessToken");
-            if (cwAccessToken != null) {
+            String cwAccessToken = context.read(TOKEN_PATH);
+            if (cwAccessToken != null && !cwAccessToken.isEmpty()) {
                 LOG.info("context has cwAccessToken");
-                try {
-                    String result = HTTP_UTILS.get("https://opendev.shipout.com/api/open-api/oms/order/query?orderId=1846092409358094338", null);
-                    LOG.info("requestJson result:{}", result);
-                    context.set("$.cwAccessToken", "newcwAccessToken");
-                } catch (Exception e) {
-                    LOG.error("requestJson error:{}", e);
+                CacheItem cachedToken = ACCESS_TOKEN_CACHE.get(cwAccessToken);
+                if (cachedToken != null) {
+                    context.set(TOKEN_PATH, cachedToken.token);
+                    LOG.info("Retrieved cwAccessToken from cache: {}", cachedToken.token);
+                } else {
+                    try {
+                        String result = HTTP_UTILS.get(GET_TOKEN_URL, null);
+                        ACCESS_TOKEN_CACHE.put(cwAccessToken, new CacheItem(result));
+                        LOG.info("requestJson result: {}", result);
+                        context.set(TOKEN_PATH, result);
+                        LOG.info("context set cwAccessToken success {}", context.jsonString());
+                    } catch (Exception e) {
+                        LOG.error("requestJson error: {}", e);
+                    }
                 }
-                LOG.info("context set cwAccessToken success {}", context.jsonString());
             }
+        } catch (PathNotFoundException e) {
+            LOG.info("context no cwAccessToken");
         } catch (Exception e) {
-            LOG.error("json path error:{}", e);
+            LOG.error("replaceTemuToken error: {}", e);
+        }
+    }
+
+    private static class CacheItem {
+        private String token;
+
+        CacheItem(final String token) {
+            this.token = token;
         }
     }
 
