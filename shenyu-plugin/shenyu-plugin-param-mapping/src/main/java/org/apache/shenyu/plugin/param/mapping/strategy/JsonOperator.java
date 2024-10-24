@@ -105,42 +105,49 @@ public class JsonOperator implements Operator {
     private void replaceTemuToken(final DocumentContext context) {
         try {
             String cwAccessToken = context.read(TOKEN_PATH);
-            if (cwAccessToken != null && !cwAccessToken.isEmpty()) {
-                LOG.info("context has cwAccessToken");
-                CacheItem cachedToken = ACCESS_TOKEN_CACHE.get(cwAccessToken);
-                if (cachedToken != null) {
-                    context.set(TOKEN_PATH, cachedToken.token);
-                    LOG.info("Retrieved cwAccessToken from cache: {}", cachedToken.token);
-                } else {
-                    try {
-                        Map<String, String> form = new LinkedHashMap<>();
-                        form.put("cwAccessToken", cwAccessToken);
-                        String result = HTTP_UTILS.request(GET_TOKEN_URL, form, null, HttpUtils.HTTPMethod.POST);
-                        if (result != null && !result.isEmpty()) {
-                            ObjectMapper objectMapper = new ObjectMapper();
-                            JsonNode jsonNode = objectMapper.readTree(result);
-                            String resultValue = jsonNode.get("result").asText();
-                            if ("OK".equals(resultValue)) {
-                                String accessToken = jsonNode.get("data").get("accessToken").asText();
-                                if (accessToken != null && !accessToken.isEmpty() && !"null".equals(accessToken)) {
-                                    ACCESS_TOKEN_CACHE.put(cwAccessToken, new CacheItem(accessToken));
-                                    LOG.info("requestToken result: {}", accessToken);
-                                    context.set(TOKEN_PATH, accessToken);
-                                    LOG.info("context set cwAccessToken success {}", context.jsonString());
-                                } else {
-                                    LOG.error("requestToken result accessToken is empty or null");
-                                }
-                            } else {
-                                LOG.error("requestToken result is not OK {}", result);
-                            }
-                        } else {
-                            LOG.error("requestToken result is empty");
-                        }
-                    } catch (Exception e) {
-                        LOG.error("requestToken error: {}", e);
-                    }
-                }
+            if (cwAccessToken == null || cwAccessToken.isEmpty()) {
+                LOG.info("context has no cwAccessToken");
+                return;
             }
+
+            LOG.info("context has cwAccessToken");
+
+            CacheItem cachedToken = ACCESS_TOKEN_CACHE.get(cwAccessToken);
+            if (cachedToken != null) {
+                context.set(TOKEN_PATH, cachedToken.token);
+                LOG.info("Retrieved cwAccessToken from cache: {}", cachedToken.token);
+                return;
+            }
+
+            Map<String, String> form = new LinkedHashMap<>();
+            form.put("cwAccessToken", cwAccessToken);
+            String result = HTTP_UTILS.request(GET_TOKEN_URL, form, null, HttpUtils.HTTPMethod.POST);
+
+            if (result == null || result.isEmpty()) {
+                LOG.error("requestToken result is empty");
+                return;
+            }
+
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode jsonNode = objectMapper.readTree(result);
+            String resultValue = jsonNode.get("result").asText();
+
+            if (!"OK".equals(resultValue)) {
+                LOG.error("requestToken result is not OK {}", result);
+                return;
+            }
+
+            String accessToken = jsonNode.get("data").get("accessToken").asText();
+            if (accessToken == null || accessToken.isEmpty() || "null".equals(accessToken)) {
+                LOG.error("requestToken result accessToken is empty or null");
+                return;
+            }
+
+            ACCESS_TOKEN_CACHE.put(cwAccessToken, new CacheItem(accessToken));
+            LOG.info("requestToken result: {}", accessToken);
+            context.set(TOKEN_PATH, accessToken);
+            LOG.info("context set cwAccessToken success {}", context.jsonString());
+
         } catch (PathNotFoundException e) {
             LOG.info("context no cwAccessToken");
         } catch (Exception e) {

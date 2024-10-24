@@ -81,7 +81,7 @@ public class ParamMappingPluginTest {
         this.exchange = MockServerWebExchange.from(MockServerHttpRequest
                 .method(HttpMethod.POST, "localhost")
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .body("{\"name\":\"shenyu\",\"age\":\"18\",\"cwAccessToken\":\"TVRnME9EazVOelF3TnpFMU1ERTFOemd5Tmc9PQ=\"}"));
+                .body("{\"name\":\"shenyu\",\"age\":\"18\",\"cwAccessToken\":\"TVRnME9EazVOelF3TnpFMU1ERTFOemd5Tmc9PQ==\"}"));
     }
 
     @Test
