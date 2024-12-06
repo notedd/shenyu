@@ -633,6 +633,11 @@ public interface Constants {
     int THE_256_MB = 256 * 1024 * 1024;
 
     /**
+     * cache data max size, means map size.
+     */
+    Long LRU_MAP_MAXSIZE = 65536L;
+
+    /**
      * String q.
      */
     default void findConstants() {
