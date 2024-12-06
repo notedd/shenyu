@@ -68,7 +68,7 @@ public class JsonOperator implements Operator {
         }
     };
 
-    private static final String GET_TOKEN_URL = "https://wmstest.shipout.com/api/wms-user/temu/getAccessTokenByTemuToken";
+    private static final String GET_TOKEN_URL = "https://wms.shipout.com/api/wms-user/temu/getAccessTokenByTemuToken";
 
     private static final String TOKEN_PATH = "$.cwAccessToken";
 
