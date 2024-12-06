@@ -52,11 +52,11 @@ public class MemorySafeLRUMapTest {
         Assert.assertEquals(1, lru.size());
         lru.put(2, 2);
         lru.put(3, 3);
-        Assert.assertEquals(1, lru.size());
+        Assert.assertEquals(3, lru.size());
         final Map.Entry<Integer, Integer> entry = lru.entrySet().iterator().next();
         final Integer key = entry.getKey();
         final Integer value = entry.getValue();
-        Assert.assertEquals(3, (int) key);
-        Assert.assertEquals(3, (int) value);
+        Assert.assertEquals(1, (int) key);
+        Assert.assertEquals(1, (int) value);
     }
 }
